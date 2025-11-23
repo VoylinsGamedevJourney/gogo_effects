@@ -1,0 +1,23 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="GoGo Effects"
+config/description="**GoGo Effects** is a GDExtension for Godot 4.5+ that allows you to record and export videos of Godot projects to video files. The main use-case for this is to create animations or cutscenes. Exporting Godot projects to videos in a faster way compared to the build in way to create videos from inside Godot.s"
+config/version="0.1"
+run/main_scene="uid://ce8f5w8lyqueg"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
