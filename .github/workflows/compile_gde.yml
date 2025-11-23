@@ -2,6 +2,9 @@ name: 11 | Compile GDE
 on:
   workflow_call:
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 1 * *' # At 04:00 on the 1st of every month
+      timezone: 'Asia/Tokyo'
         
 env:
   GODOT_VERSION: 4.5.1

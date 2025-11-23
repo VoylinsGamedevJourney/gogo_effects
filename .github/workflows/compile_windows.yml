@@ -1,4 +1,4 @@
-name: 2 | Compile Windows
+name: 02 | Compile Windows
 
 on: 
   workflow_call:

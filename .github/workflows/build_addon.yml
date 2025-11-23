@@ -1,6 +1,12 @@
 name: 0 | Build GDE GoGo Effects
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version'
+        type: string
+        default: '8.4'
   workflow_dispatch:
     inputs:
       version:
@@ -11,30 +17,13 @@ on:
 run-name: 'Build GoGo Effects Release: v${{ inputs.version }} by @${{ github.actor }}'
 
 jobs:
-  compile-ffmpeg:
-    name: 'Compile FFmpeg'
-    permissions:
-      actions: read
-      contents: read
-    uses: ./.github/workflows/compile_ffmpeg.yml
-
-  compile-gde:
-    needs: [compile-ffmpeg]
-    name: 'Compile GDE'
-    permissions:
-      actions: read
-      contents: read
-    uses: ./.github/workflows/compile_gde.yml
-
   compile-linux:
-    needs: [compile-compile_gde]
     name: 'Compile Linux'
     uses: ./.github/workflows/compile_linux.yml
     with:
       version: v${{ inputs.version }}
 
   compile-windows:
-    needs: [compile-compile_gde]
     name: 'Compile Windows'
     uses: ./.github/workflows/compile_windows.yml
     with:
