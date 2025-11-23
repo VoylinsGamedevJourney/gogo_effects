@@ -1,0 +1,16 @@
+.godot
+
+*.so
+*.os
+
+src/aom_src
+src/mp3lame_src
+src/ogg_src
+src/opus_src
+src/svtav1_src
+src/vorbis_src
+src/vpx_src
+src/x264_src
+src/x265_src
+
+__pycache__
