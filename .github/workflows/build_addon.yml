@@ -1,0 +1,87 @@
+name: 0 | Build GDE GoGo Effects
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        type: string
+        default: '8.4'
+
+run-name: 'Build GoGo Effects Release: v${{ inputs.version }} by @${{ github.actor }}'
+
+jobs:
+  compile-ffmpeg:
+    name: 'Compile FFmpeg'
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/compile_ffmpeg.yml
+
+  compile-gde:
+    needs: [compile-ffmpeg]
+    name: 'Compile GDE'
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/compile_gde.yml
+
+  compile-linux:
+    needs: [compile-compile_gde]
+    name: 'Compile Linux'
+    uses: ./.github/workflows/compile_linux.yml
+    with:
+      version: v${{ inputs.version }}
+
+  compile-windows:
+    needs: [compile-compile_gde]
+    name: 'Compile Windows'
+    uses: ./.github/workflows/compile_windows.yml
+    with:
+      version: v${{ inputs.version }}
+
+  build-addon:
+    needs: [compile-linux, compile-windows]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Linux bin x86_64
+        uses: actions/download-artifact@v4
+        with:
+          path: test_room/addons/gogo_effects/bin/
+          name: bin_linux_x86_64
+
+      - name: Linux bin arm64
+        uses: actions/download-artifact@v4
+        with:
+          path: test_room/addons/gogo_effects/bin/
+          name: bin_linux_arm64
+
+      - name: Windows bin
+        uses: actions/download-artifact@v4
+        with:
+          path: test_room/addons/gogo_effects/bin/
+          name: bin_windows
+
+      - name: Finalizing
+        run: |
+          cp LICENSE test_room/addons/gogo_effects/
+          sed -i 's/^version="[^"]*"/version="v${{ inputs.version }}"/' test_room/addons/gogo_effects/plugin.cfg
+
+      - name: Upload addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoGo_Effects_v${{ inputs.version }}
+          path: test_room/addons/
+          retention-days: 7
+
+      - name: Upload test_room
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoGo_Effects_test_room_v${{ inputs.version }}
+          path: test_room/
+          retention-days: 7
