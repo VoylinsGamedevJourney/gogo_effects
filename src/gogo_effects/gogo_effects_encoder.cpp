@@ -1,4 +1,5 @@
 #include "gogo_effects_encoder.hpp"
+
 #include "ffmpeg_helpers.hpp"
 
 
@@ -29,13 +30,6 @@ bool GoGoEffectsEncoder::open(bool rgba) {
 	if (framerate <= 0)
 		return _log_err("Invalid framerate set");
 
-	if (audio_codec_id != AV_CODEC_ID_NONE) {
-		if (audio_codec_id == AV_CODEC_ID_NONE)
-			_log("Audio codec not set, not encoding audio");
-		else if (sample_rate == -1)
-			_log("A sample rate needs to be set for audio exporting");
-	}
-
 	format_size = rgba ? 4 : 3;
 
 	// Allocating output media context
@@ -53,12 +47,6 @@ bool GoGoEffectsEncoder::open(bool rgba) {
 
 	// Setting up video stream
 	if (!_add_video_stream()) {
-		close();
-		return _log_err("Couldn't create video stream");
-	}
-
-	// Setting up audio stream
-	if (audio_codec_id != AV_CODEC_ID_NONE && !_add_audio_stream()) {
 		close();
 		return _log_err("Couldn't create video stream");
 	}
@@ -168,64 +156,6 @@ bool GoGoEffectsEncoder::_add_video_stream() {
 	return true;
 }
 
-bool GoGoEffectsEncoder::_add_audio_stream() {
-	const AVCodec* av_codec = avcodec_find_encoder(audio_codec_id);
-	if (!av_codec) {
-		_log_err(avcodec_get_name(audio_codec_id));
-		return _log_err("Couldn't find audio encoder");
-	}
-
-	if (!(av_packet_audio = make_unique_avpacket()))
-		return _log_err("Out of memory");
-
-	av_stream_audio = avformat_new_stream(av_format_ctx.get(), nullptr);
-	if (!av_stream_audio)
-		return _log_err("Couldn't create stream");
-
-	av_stream_audio->id = av_format_ctx->nb_streams - 1;
-
-	av_codec_ctx_audio = make_unique_ffmpeg<AVCodecContext, AVCodecCtxDeleter>(avcodec_alloc_context3(av_codec));
-	if (!av_codec_ctx_audio)
-		return _log_err("Couln't alloc audio codec");
-
-	FFmpeg::enable_multithreading(av_codec_ctx_audio.get(), av_codec, threads);
-
-	av_codec_ctx_audio->bit_rate = 128000;
-	av_codec_ctx_audio->sample_fmt = av_codec->sample_fmts[0];
-	av_codec_ctx_audio->sample_rate = sample_rate;
-
-	if (av_codec->supported_samplerates) {
-		for (int i = 0; av_codec->supported_samplerates[i]; i++) {
-			if (av_codec->supported_samplerates[i] == 48000) {
-				av_codec_ctx_audio->sample_rate = 48000;
-				break;
-			}
-		}
-	}
-
-	av_codec_ctx_audio->time_base = AVRational{1, av_codec_ctx_audio->sample_rate};
-	av_stream_audio->time_base = av_codec_ctx_audio->time_base;
-
-	AVChannelLayout ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-	av_channel_layout_copy(&av_codec_ctx_audio->ch_layout, &(ch_layout));
-
-	// Opening the audio encoder codec.
-	response = avcodec_open2(av_codec_ctx_audio.get(), av_codec, nullptr);
-	if (response < 0) {
-		FFmpeg::print_av_error("Couldn't open audio codec!", response);
-		return false;
-	}
-
-	// Copy audio stream params to muxer.
-	if (avcodec_parameters_from_context(av_stream_audio->codecpar, av_codec_ctx_audio.get()))
-		return _log_err("Couldn't copy stream params");
-
-	if (av_format_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-		av_codec_ctx_audio->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
-	return true;
-}
-
 bool GoGoEffectsEncoder::_open_output_file() {
 	if (!(av_format_ctx->oformat->flags & AVFMT_NOFILE)) {
 		response = avio_open(&av_format_ctx->pb, path.utf8(), AVIO_FLAG_WRITE);
@@ -259,8 +189,6 @@ bool GoGoEffectsEncoder::_write_header() {
 bool GoGoEffectsEncoder::send_frame(Ref<Image> frame_image) {
 	if (!encoder_open)
 		return _log_err("Not open");
-	else if (audio_codec_id != AV_CODEC_ID_NONE && audio_codec_id != AV_CODEC_ID_NONE && !audio_added)
-		return _log_err("Audio hasn't been send");
 	else if (av_frame_make_writable(av_frame_video.get()) < 0)
 		return _log_err("Frame not writable");
 
@@ -310,120 +238,6 @@ bool GoGoEffectsEncoder::send_frame(Ref<Image> frame_image) {
 		av_packet_unref(av_packet_video.get());
 	}
 
-	return true;
-}
-
-bool GoGoEffectsEncoder::send_audio(PackedByteArray wav_data) {
-	if (!encoder_open)
-		return _log_err("Not open");
-	if (audio_codec_id == AV_CODEC_ID_NONE)
-		return _log_err("Audio not enabled");
-	if (audio_added)
-		return _log_err("Audio already send");
-
-	const uint8_t* input_data = wav_data.ptr();
-	UniqueSwrCtx swr_ctx;
-	AVChannelLayout ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-
-	// Allocate and setup SWR
-	SwrContext* temp_swr_ctx = nullptr;
-	swr_alloc_set_opts2(&temp_swr_ctx, &ch_layout, av_codec_ctx_audio->sample_fmt, av_codec_ctx_audio->sample_rate,
-						&ch_layout, AV_SAMPLE_FMT_S16, sample_rate, 0, nullptr);
-	swr_ctx = make_unique_ffmpeg<SwrContext, SwrCtxDeleter>(temp_swr_ctx);
-	if (!swr_ctx || swr_init(swr_ctx.get()) < 0)
-		return _log_err("Couldn't create SWR");
-
-	// Allocate a buffer for the output in the target format
-	UniqueAVFrame av_frame_out = make_unique_avframe();
-	if (!av_frame_out)
-		return _log_err("Out of memory");
-
-	av_frame_out->ch_layout = av_codec_ctx_audio->ch_layout;
-	av_frame_out->format = av_codec_ctx_audio->sample_fmt;
-	av_frame_out->sample_rate = av_codec_ctx_audio->sample_rate;
-	av_frame_out->nb_samples = av_codec_ctx_audio->frame_size;
-
-	av_frame_get_buffer(av_frame_out.get(), 0);
-
-	if (!(av_packet_audio = make_unique_avpacket()))
-		return _log_err("Out of memory");
-
-	int bytes_per_sample = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * 2;
-	int remaining_samples = wav_data.size() / bytes_per_sample;
-	int64_t pts = 0;
-
-	while (remaining_samples > 0) {
-		int samples_to_convert = FFMIN(remaining_samples, av_codec_ctx_audio->frame_size);
-
-		// Resample the data
-		int converted_samples =
-			swr_convert(swr_ctx.get(), av_frame_out->data, av_frame_out->nb_samples, &input_data, samples_to_convert);
-
-		if (converted_samples < 0)
-			return _log_err("Couldn't resample");
-		if (converted_samples > 0) {
-			av_frame_out->nb_samples = converted_samples;
-			av_frame_out->pts = pts;
-			pts += converted_samples;
-
-			// Send audio frame to the encoder
-			response = avcodec_send_frame(av_codec_ctx_audio.get(), av_frame_out.get());
-			if (response < 0) {
-				FFmpeg::print_av_error("Error sending audio frame!", response);
-				return false;
-			}
-
-			while ((response = avcodec_receive_packet(av_codec_ctx_audio.get(), av_packet_audio.get())) >= 0) {
-				// Rescale packet timestamp if necessary
-				av_packet_audio->stream_index = av_stream_audio->index;
-				av_packet_rescale_ts(av_packet_audio.get(), av_codec_ctx_audio->time_base, av_stream_audio->time_base);
-
-				response = av_interleaved_write_frame(av_format_ctx.get(), av_packet_audio.get());
-				if (response < 0) {
-					FFmpeg::print_av_error("Error writing audio packet!", response);
-					return false;
-				}
-
-				av_packet_unref(av_packet_audio.get());
-			}
-		}
-
-		remaining_samples -= samples_to_convert;
-		input_data += samples_to_convert * bytes_per_sample;
-	}
-
-	// Flush remaining samples
-	while (true) {
-		int converted_samples = swr_convert(swr_ctx.get(), av_frame_out->data, av_frame_out->nb_samples, nullptr, 0);
-		if (converted_samples <= 0)
-			break;
-
-		av_frame_out->nb_samples = converted_samples;
-		av_frame_out->pts = pts;
-		pts += converted_samples;
-
-		int response = avcodec_send_frame(av_codec_ctx_audio.get(), av_frame_out.get());
-		if (converted_samples <= 0)
-			break;
-
-		while ((response = avcodec_receive_packet(av_codec_ctx_audio.get(), av_packet_audio.get())) >= 0) {
-			av_packet_audio->stream_index = av_stream_audio->index;
-			av_packet_rescale_ts(av_packet_audio.get(), av_codec_ctx_audio->time_base, av_stream_audio->time_base);
-			av_interleaved_write_frame(av_format_ctx.get(), av_packet_audio.get());
-			av_packet_unref(av_packet_audio.get());
-		}
-	}
-
-	// Flush the encoder
-	avcodec_send_frame(av_codec_ctx_audio.get(), nullptr);
-	while (avcodec_receive_packet(av_codec_ctx_audio.get(), av_packet_audio.get()) >= 0) {
-		av_packet_audio->stream_index = av_stream_audio->index;
-		av_packet_rescale_ts(av_packet_audio.get(), av_codec_ctx_audio->time_base, av_stream_audio->time_base);
-		av_interleaved_write_frame(av_format_ctx.get(), av_packet_audio.get());
-		av_packet_unref(av_packet_audio.get());
-	}
-
-	audio_added = true;
 	return true;
 }
 
@@ -480,15 +294,6 @@ bool GoGoEffectsEncoder::_finalize_encoding() {
 		}
 	}
 
-	// Flush audio encoder (send_audio already does this, this is just an extra check).
-	if (audio_codec_id != AV_CODEC_ID_NONE && av_codec_ctx_audio) {
-		av_packet_audio = make_unique_avpacket();
-		avcodec_send_frame(av_codec_ctx_audio.get(), nullptr);
-
-		while (avcodec_receive_packet(av_codec_ctx_audio.get(), av_packet_audio.get()) >= 0)
-			av_packet_unref(av_packet_audio.get());
-	}
-
 	// Writing stream trailer.
 	if (av_format_ctx) {
 		_log("Writing trailer to file ...");
@@ -516,22 +321,19 @@ void GoGoEffectsEncoder::close() {
 	sws_ctx.reset();
 
 	av_packet_video.reset();
-	av_packet_audio.reset();
 	av_frame_video.reset();
-
 	av_codec_ctx_video.reset();
-	av_codec_ctx_audio.reset();
 
 	av_format_ctx.reset();
 
 	encoder_open = false;
-	audio_added = false;
 	frame_nr = 0;
 }
 
 
 #define BIND_STATIC_METHOD_ARGS(method_name, ...)                                                                      \
-	ClassDB::bind_static_method("GoGoEffectsEncoder", D_METHOD(#method_name, __VA_ARGS__), &GoGoEffectsEncoder::method_name)
+	ClassDB::bind_static_method("GoGoEffectsEncoder", D_METHOD(#method_name, __VA_ARGS__),                             \
+								&GoGoEffectsEncoder::method_name)
 
 #define BIND_METHOD(method_name) ClassDB::bind_method(D_METHOD(#method_name), &GoGoEffectsEncoder::method_name)
 
@@ -550,17 +352,6 @@ void GoGoEffectsEncoder::_bind_methods() {
 	BIND_ENUM_CONSTANT(V_VP9);
 	BIND_ENUM_CONSTANT(V_VP8);
 	BIND_ENUM_CONSTANT(V_NONE);
-
-	/* AUDIO CODEC ENUMS */
-	BIND_ENUM_CONSTANT(A_WAV);
-	BIND_ENUM_CONSTANT(A_MP2);
-	BIND_ENUM_CONSTANT(A_MP3);
-	BIND_ENUM_CONSTANT(A_PCM);
-	BIND_ENUM_CONSTANT(A_AAC);
-	BIND_ENUM_CONSTANT(A_OPUS);
-	BIND_ENUM_CONSTANT(A_VORBIS);
-	BIND_ENUM_CONSTANT(A_FLAC);
-	BIND_ENUM_CONSTANT(A_NONE);
 
 	/* H264 PRESETS */
 	BIND_ENUM_CONSTANT(H264_PRESET_ULTRAFAST);
@@ -589,9 +380,7 @@ void GoGoEffectsEncoder::_bind_methods() {
 	BIND_METHOD_ARGS(open, "rgba");
 	BIND_METHOD(is_open);
 
-
 	BIND_METHOD_ARGS(send_frame, "frame_image");
-	BIND_METHOD_ARGS(send_audio, "wav_data");
 
 	BIND_METHOD(close);
 
@@ -600,8 +389,6 @@ void GoGoEffectsEncoder::_bind_methods() {
 	BIND_METHOD(disable_debug);
 
 	BIND_METHOD_ARGS(set_video_codec_id, "codec_id");
-	BIND_METHOD_ARGS(set_audio_codec_id, "codec_id");
-	BIND_METHOD(audio_codec_set);
 
 	BIND_METHOD_ARGS(set_file_path, "file_path");
 

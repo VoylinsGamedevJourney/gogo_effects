@@ -9,7 +9,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
 #include <libavutil/frame.h>
-#include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
 
@@ -77,16 +76,6 @@ struct AVIOContextDeleter {
 	}
 };
 using UniqueAVIOContext = std::unique_ptr<AVIOContext, AVIOContextDeleter>;
-
-
-// SWResample Context helper.
-struct SwrCtxDeleter {
-	void operator()(SwrContext* ctx) const {
-		if (ctx)
-			swr_free(&ctx);
-	}
-};
-using UniqueSwrCtx = std::unique_ptr<SwrContext, SwrCtxDeleter>;
 
 
 // SWScale Context helper.

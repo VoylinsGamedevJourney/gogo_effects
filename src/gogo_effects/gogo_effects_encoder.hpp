@@ -3,7 +3,6 @@
 #include "ffmpeg.hpp"
 #include "ffmpeg_helpers.hpp"
 
-#include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource.hpp>
@@ -29,14 +28,9 @@ class GoGoEffectsEncoder : public Resource {
 	UniqueAVFrame av_frame_hw_video;
 	AVBufferRef* hw_device_ctx = nullptr;
 
-	UniqueAVCodecCtx av_codec_ctx_audio;
-	UniqueAVPacket av_packet_audio;
-	AVStream* av_stream_audio = nullptr;
-
 	UniqueSwsCtx sws_ctx;
 
 	AVCodecID video_codec_id = AV_CODEC_ID_NONE;
-	AVCodecID audio_codec_id = AV_CODEC_ID_NONE;
 
 	// Default variable types
 	int sample_rate = 44100;
@@ -58,7 +52,6 @@ class GoGoEffectsEncoder : public Resource {
 	float framerate = 30.;
 
 	bool encoder_open = false;
-	bool audio_added = false;
 
 
 	bool debug = true;
@@ -72,7 +65,6 @@ class GoGoEffectsEncoder : public Resource {
 
 	// Private classes
 	bool _add_video_stream();
-	bool _add_audio_stream();
 	bool _open_output_file();
 	bool _write_header();
 	bool _finalize_encoding();
@@ -96,17 +88,6 @@ class GoGoEffectsEncoder : public Resource {
 		V_VP9 = AV_CODEC_ID_VP9,
 		V_VP8 = AV_CODEC_ID_VP8,
 		V_NONE = AV_CODEC_ID_NONE,
-	};
-	enum AUDIO_CODEC {
-		A_WAV = AV_CODEC_ID_WAVPACK,
-		A_PCM = AV_CODEC_ID_PCM_S16LE,
-		A_MP2 = AV_CODEC_ID_MP2,
-		A_MP3 = AV_CODEC_ID_MP3,
-		A_AAC = AV_CODEC_ID_AAC,
-		A_OPUS = AV_CODEC_ID_OPUS,
-		A_VORBIS = AV_CODEC_ID_VORBIS,
-		A_FLAC = AV_CODEC_ID_FLAC,
-		A_NONE = AV_CODEC_ID_NONE,
 	};
 	enum H264_PRESETS { // Only works for H.H264
 		H264_PRESET_VERYSLOW,
@@ -138,7 +119,6 @@ class GoGoEffectsEncoder : public Resource {
 	inline bool is_open() { return encoder_open; }
 
 	bool send_frame(Ref<Image> frame_image);
-	bool send_audio(PackedByteArray wav_data);
 
 	void close();
 
@@ -158,8 +138,6 @@ class GoGoEffectsEncoder : public Resource {
 	}
 
 	inline void set_video_codec_id(VIDEO_CODEC codec_id) { video_codec_id = (AVCodecID)codec_id; }
-	inline void set_audio_codec_id(AUDIO_CODEC codec_id) { audio_codec_id = (AVCodecID)codec_id; }
-	inline bool audio_codec_set() const { return AV_CODEC_ID_NONE != audio_codec_id; }
 
 	inline void set_file_path(String file_path) { path = file_path; }
 
@@ -210,7 +188,6 @@ class GoGoEffectsEncoder : public Resource {
 };
 
 VARIANT_ENUM_CAST(GoGoEffectsEncoder::VIDEO_CODEC);
-VARIANT_ENUM_CAST(GoGoEffectsEncoder::AUDIO_CODEC);
 VARIANT_ENUM_CAST(GoGoEffectsEncoder::H264_PRESETS);
 VARIANT_ENUM_CAST(GoGoEffectsEncoder::SWS_QUALITY);
 VARIANT_ENUM_CAST(GoGoEffectsEncoder::HW_DEVICE_TYPES);

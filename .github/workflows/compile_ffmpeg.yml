@@ -7,8 +7,8 @@ on:
       timezone: 'Asia/Tokyo'
         
 env:
-  PATH_LINUX: libs/ffmpeg/bin_linux
-  PATH_WINDOWS: libs/ffmpeg/bin_windows
+  PATH_LINUX: src/ffmpeg/bin_linux
+  PATH_WINDOWS: src/ffmpeg/bin_windows
 
 run-name: Compile FFmpeg
 jobs:
@@ -34,7 +34,7 @@ jobs:
       - name: Compile FFmpeg
         run: |
           export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
-          python -m libs.build_ffmpeg --platform linux --arch x86_64 --threads 4
+          python -m src.build_ffmpeg --platform linux --arch x86_64 --threads 4
 
       - name: Upload bin
         uses: actions/upload-artifact@v4
@@ -145,7 +145,7 @@ jobs:
           path: ${{ env.PATH_WINDOWS }}
 
       - name: Compiling
-        working-directory: ./libs
+        working-directory: ./src
         run: python3 -c "import sys; sys.path.append('.'); import build_ffmpeg; build_ffmpeg.build_ffmpeg_windows('x86_64', 4, {})"
 
       - name: Upload bin
