@@ -15,3 +15,9 @@ src/x264_src
 src/x265_src
 
 __pycache__
+*.dblite
+
+bin/linux*
+bin/windows*
+
+compile_commands.json
