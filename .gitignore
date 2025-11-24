@@ -21,3 +21,6 @@ bin/linux*
 bin/windows*
 
 compile_commands.json
+test_room/addons/gogo_effects/bin/linux_x86_64
+
+*.mp4

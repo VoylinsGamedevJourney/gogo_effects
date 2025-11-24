@@ -15,7 +15,11 @@ config/description="**GoGo Effects** is a GDExtension for Godot 4.5+ that allows
 config/version="0.1"
 run/main_scene="uid://ce8f5w8lyqueg"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="uid://cnjxvkwjola7w"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gogo_effects/plugin.cfg")
 
 [rendering]
 

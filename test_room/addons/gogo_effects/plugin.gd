@@ -8,7 +8,7 @@ extends EditorPlugin
 func _enter_tree() -> void:
 	add_custom_type(
 			"VideoPlayback", "Control",
-			load("res://addons/gogo_effects/gogo_efects.gd"),
+			load("res://addons/gogo_effects/gogo_effects.gd"),
 			load("res://addons/gogo_effects/icon.svg"))
 
 
