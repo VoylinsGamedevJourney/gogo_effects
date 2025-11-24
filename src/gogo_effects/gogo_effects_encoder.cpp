@@ -1,9 +1,10 @@
 #include "gogo_effects_encoder.hpp"
+#include "ffmpeg_helpers.hpp"
 
 
-GoGoEffects::~GoGoEffects() { close(); }
+GoGoEffectsEncoder::~GoGoEffectsEncoder() { close(); }
 
-PackedStringArray GoGoEffects::get_available_codecs(int codec_id) {
+PackedStringArray GoGoEffectsEncoder::get_available_codecs(int codec_id) {
 	PackedStringArray codec_names = PackedStringArray();
 	const AVCodec* current_codec = nullptr;
 	void* i = nullptr;
@@ -15,7 +16,7 @@ PackedStringArray GoGoEffects::get_available_codecs(int codec_id) {
 	return codec_names;
 }
 
-bool GoGoEffects::open(bool rgba) {
+bool GoGoEffectsEncoder::open(bool rgba) {
 	if (encoder_open)
 		return _log_err("Already open");
 
@@ -89,7 +90,7 @@ bool GoGoEffects::open(bool rgba) {
 	return true;
 }
 
-bool GoGoEffects::_add_video_stream() {
+bool GoGoEffectsEncoder::_add_video_stream() {
 	const AVCodec* av_codec = avcodec_find_encoder(video_codec_id);
 	if (!av_codec) {
 		_log_err(avcodec_get_name(video_codec_id));
@@ -167,7 +168,7 @@ bool GoGoEffects::_add_video_stream() {
 	return true;
 }
 
-bool GoGoEffects::_add_audio_stream() {
+bool GoGoEffectsEncoder::_add_audio_stream() {
 	const AVCodec* av_codec = avcodec_find_encoder(audio_codec_id);
 	if (!av_codec) {
 		_log_err(avcodec_get_name(audio_codec_id));
@@ -225,7 +226,7 @@ bool GoGoEffects::_add_audio_stream() {
 	return true;
 }
 
-bool GoGoEffects::_open_output_file() {
+bool GoGoEffectsEncoder::_open_output_file() {
 	if (!(av_format_ctx->oformat->flags & AVFMT_NOFILE)) {
 		response = avio_open(&av_format_ctx->pb, path.utf8(), AVIO_FLAG_WRITE);
 
@@ -238,7 +239,7 @@ bool GoGoEffects::_open_output_file() {
 	return true;
 }
 
-bool GoGoEffects::_write_header() {
+bool GoGoEffectsEncoder::_write_header() {
 	AVDictionary* options = nullptr;
 
 	av_dict_set(&options, "title", path.get_file().utf8(), 0);
@@ -255,7 +256,7 @@ bool GoGoEffects::_write_header() {
 	return true;
 }
 
-bool GoGoEffects::send_frame(Ref<Image> frame_image) {
+bool GoGoEffectsEncoder::send_frame(Ref<Image> frame_image) {
 	if (!encoder_open)
 		return _log_err("Not open");
 	else if (audio_codec_id != AV_CODEC_ID_NONE && audio_codec_id != AV_CODEC_ID_NONE && !audio_added)
@@ -312,7 +313,7 @@ bool GoGoEffects::send_frame(Ref<Image> frame_image) {
 	return true;
 }
 
-bool GoGoEffects::send_audio(PackedByteArray wav_data) {
+bool GoGoEffectsEncoder::send_audio(PackedByteArray wav_data) {
 	if (!encoder_open)
 		return _log_err("Not open");
 	if (audio_codec_id == AV_CODEC_ID_NONE)
@@ -426,7 +427,7 @@ bool GoGoEffects::send_audio(PackedByteArray wav_data) {
 	return true;
 }
 
-bool GoGoEffects::_finalize_encoding() {
+bool GoGoEffectsEncoder::_finalize_encoding() {
 	if (!encoder_open) {
 		_log("Encoder not open, nothing to finalize.");
 		return 2;
@@ -501,7 +502,7 @@ bool GoGoEffects::_finalize_encoding() {
 }
 
 
-void GoGoEffects::close() {
+void GoGoEffectsEncoder::close() {
 	if (frame_nr == 0)
 		return;
 
@@ -530,14 +531,14 @@ void GoGoEffects::close() {
 
 
 #define BIND_STATIC_METHOD_ARGS(method_name, ...)                                                                      \
-	ClassDB::bind_static_method("GoGoEffects", D_METHOD(#method_name, __VA_ARGS__), &GoGoEffects::method_name)
+	ClassDB::bind_static_method("GoGoEffectsEncoder", D_METHOD(#method_name, __VA_ARGS__), &GoGoEffectsEncoder::method_name)
 
-#define BIND_METHOD(method_name) ClassDB::bind_method(D_METHOD(#method_name), &GoGoEffects::method_name)
+#define BIND_METHOD(method_name) ClassDB::bind_method(D_METHOD(#method_name), &GoGoEffectsEncoder::method_name)
 
 #define BIND_METHOD_ARGS(method_name, ...)                                                                             \
-	ClassDB::bind_method(D_METHOD(#method_name, __VA_ARGS__), &GoGoEffects::method_name)
+	ClassDB::bind_method(D_METHOD(#method_name, __VA_ARGS__), &GoGoEffectsEncoder::method_name)
 
-void GoGoEffects::_bind_methods() {
+void GoGoEffectsEncoder::_bind_methods() {
 	/* VIDEO CODEC ENUMS */
 	BIND_ENUM_CONSTANT(V_HEVC);
 	BIND_ENUM_CONSTANT(V_H264);
