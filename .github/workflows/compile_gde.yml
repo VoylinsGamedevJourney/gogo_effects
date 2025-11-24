@@ -8,8 +8,8 @@ on:
         
 env:
   GODOT_VERSION: 4.5.1
-  EXPORT_FOLDER_LINUX: bin/linux_x86_64
-  EXPORT_FOLDER_WINDOWS: bin/windows_x86_64
+  EXPORT_FOLDER_LINUX: test_room/addons/gogo_effects/bin/linux_x86_64
+  EXPORT_FOLDER_WINDOWS: test_room/addons/gogo_effects/bin/windows_x86_64
  
 run-name: 'Compile GDE'
 
