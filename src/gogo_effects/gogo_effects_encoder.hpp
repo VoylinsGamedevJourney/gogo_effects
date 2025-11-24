@@ -87,7 +87,6 @@ class GoGoEffectsEncoder : public Resource {
 		V_AV1 = AV_CODEC_ID_AV1,
 		V_VP9 = AV_CODEC_ID_VP9,
 		V_VP8 = AV_CODEC_ID_VP8,
-		V_NONE = AV_CODEC_ID_NONE,
 	};
 	enum H264_PRESETS { // Only works for H.H264
 		H264_PRESET_VERYSLOW,
