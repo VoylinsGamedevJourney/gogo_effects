@@ -4,6 +4,7 @@
 *.os
 
 src/aom_src
+src/aom_build
 src/mp3lame_src
 src/ogg_src
 src/opus_src
