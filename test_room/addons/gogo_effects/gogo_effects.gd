@@ -190,4 +190,4 @@ func stop_encoding() -> void:
 
 	_print("Recording saved to %s" % output_path)
 	_print("Frames written: %s" % _written_frames)
-	_print("Video duration %s" % (_written_frames / framerate))
+	_print("Video duration %s" % (_written_frames / float(framerate)))
