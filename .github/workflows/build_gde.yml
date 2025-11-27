@@ -1,14 +1,17 @@
-name: Build GDE
+name: Build GoGoEffects
 description: Compile + package of the GDExtension.
 on:
-  workflow_call:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Version number
+        type: string
+        default: '0.1'
         
 env:
-  GODOT_VERSION: ${{ vars.GODOT_VERSION }}
   EXPORT_BIN: test_room/addons/gogo_effects/bin
  
-run-name: Compile GDE
+run-name: 'Build GoGoEffects: v${{ inputs.version }}'
 
 jobs:
   compile-gde:
@@ -98,5 +101,22 @@ jobs:
           name: windows_gde_template_release_x86_64
           path: ${{ env.EXPORT_BIN }}/windows_x86_64
 
+      - name: Finalize
+        run: |
+          VERSION="v${{ inputs.version }}"
 
+          cp LICENSE test_room/addons/gogo_effects/
+          sed -i 's/^version="[^"]*"/version="'$VERSION'"/' test_room/addons/gogo_effects/plugin.cfg
 
+      - name: Upload artifact (Addon)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoGoEffects_v${{ inputs.version }}
+          path: test_room/
+          retention-days: 7
+      - name: Upload artifact (Test Room)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoGoEffects_test_room_v${{ inputs.version }}
+          path: test_room/
+          retention-days: 7
