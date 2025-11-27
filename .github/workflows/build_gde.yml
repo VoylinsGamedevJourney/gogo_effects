@@ -79,6 +79,11 @@ jobs:
     needs: compile-gde
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Fetch GDE libs (Linux debug)
         uses: actions/download-artifact@v4
         with:
